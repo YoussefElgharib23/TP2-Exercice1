@@ -15,7 +15,7 @@ namespace TP2_Exercice1
     public partial class Form1 : Form
     {
         // INITIALISER LA CONNECTION VERS LA BASE DE DONNEES
-        static string connectionString = @"Data Source=localhost;Initial Catalog=Stagiaires;Integrated Security=True;User ID=Youssef;Password=Youssef@2310";
+        static string connectionString = @"Data Source=DESKTOP-8KDCUOK\SQLEXPRESS;Initial Catalog=DbStagiaire;Integrated Security=True;User ID=tdi-sg1;Password=2021;";
         SqlConnection connection = new SqlConnection(connectionString);
         public Form1()
         {
@@ -25,7 +25,6 @@ namespace TP2_Exercice1
         private void formLoadEvent(object sender, EventArgs e)
         {
             connection.Open();
-            textBoxNum.ReadOnly = true;
             actualiserListBoxStagiaires();
         }
 
@@ -39,44 +38,14 @@ namespace TP2_Exercice1
             MessageBox.Show(message, "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
-        private void incrementerNumStagiaire()
-        {
-            string commandText = "SELECT * FROM Stagiaire";
-            SqlCommand command = new SqlCommand(commandText, connection);
-            command.CommandText = "SELECT COUNT(*) FROM Stagiaire";
-            int num = (int)command.ExecuteScalar();
-            if ( num == 0 )
-            {
-                textBoxNumModifier.Enabled = false;
-                textBoxNumSup.Enabled = false;
-                textBoxTelModifier.Enabled = false;
-                btnModifier.Enabled = false;
-                btnSupprimer.Enabled = false;
-            }
-            else
-            {
-                textBoxNumModifier.Enabled = true;
-                textBoxNumSup.Enabled = true;
-                textBoxTelModifier.Enabled = true;
-                btnModifier.Enabled = true;
-                btnSupprimer.Enabled = true;
-            }
-            num++;
-            textBoxNum.Text = num.ToString();
-        }
-
         private void actualiserListBoxStagiaires()
         {
 
-            string commandText = "SELECT * FROM Stagiaire";
+            string commandText = "SELECT * FROM Stagiaires";
             SqlCommand command = new SqlCommand(commandText, connection);
             SqlDataReader reader = command.ExecuteReader();
             listBoxStagiaires.Items.Clear();
-            if (!reader.HasRows)
-            {
-                afficherMessageErreur("Aucun enregistrement dans la base de donnees !");
-            }
-            else
+            if (reader.HasRows)
             {
                 while (reader.Read())
                 {
@@ -84,7 +53,6 @@ namespace TP2_Exercice1
                 }
             }
             reader.Close();
-            incrementerNumStagiaire();
         }
 
         private void btnAjouterClickEvent(object sender, EventArgs e)
@@ -94,7 +62,7 @@ namespace TP2_Exercice1
                    telephone = textBoxTel.Text,
                    numero    = textBoxNum.Text;
 
-            if ( nom == "" || prenom == "" || telephone == "" )
+            if ( nom == "" || prenom == "" || telephone == "" || numero == "")
             {
                 afficherMessageErreur("Un ou plusieur champs sont vides !");
                 return;
@@ -108,14 +76,29 @@ namespace TP2_Exercice1
 
             try
             {
-                string commandText = string.Format("INSERT INTO Stagiaire VALUES ({0},'{1}','{2}','{3}')", numero, nom, prenom, telephone);
-                SqlCommand command = new SqlCommand(commandText, connection);
+                SqlCommand command = connection.CreateCommand();
+                int num = int.Parse(numero);
+                command.CommandText = string.Format("SELECT * FROM Stagiaires WHERE num = {0}", num);
+                SqlDataReader reader = command.ExecuteReader();
+                if (reader.HasRows)
+                {
+                    afficherMessageErreur("Le numero de stagiaire est deja existe !");
+                    reader.Close();
+                    return;
+                }
+                reader.Close();
+
+                command.CommandText = string.Format("INSERT INTO Stagiaires VALUES ({0},'{1}','{2}','{3}')", num, nom, prenom, telephone);
                 if ( command.ExecuteNonQuery() > 0 )
                 {
-                    MessageBox.Show("Votre stagiaire est bient enregistree !", "Succes", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     actualiserListBoxStagiaires();
-                    textBoxNom.Text = textBoxPrenom.Text = textBoxTel.Text = "";
+                    MessageBox.Show("Votre stagiaire est bient enregistree !", "Succes", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    textBoxNum.Text = textBoxNom.Text = textBoxPrenom.Text = textBoxTel.Text = "";
                 }
+            }
+            catch ( FormatException)
+            {
+                afficherMessageErreur("Le format du numero est incorrect !");
             }
             catch ( Exception exception )
             {
@@ -134,7 +117,7 @@ namespace TP2_Exercice1
                     afficherMessageErreur("Un champs ou plusieur sont vides !");
                     return;
                 }
-                else if ( Regex.IsMatch(telephone, @"^\d{10}$") )
+                else if ( !Regex.IsMatch(telephone, @"^\d{10}$") )
                 {
                     afficherMessageErreur("Desole ! Le format du telephone est incorrect !");
                     return;
@@ -142,19 +125,22 @@ namespace TP2_Exercice1
 
                 int num = int.Parse(numero);
 
-                string commandText = "SELECT COUNT(*) Stagiaire";
+                string commandText = string.Format("SELECT * FROM Stagiaires WHERE num = {0}", num);
                 SqlCommand command = new SqlCommand(commandText, connection);
-                int countStagiaire = (int)command.ExecuteScalar();
-
-                if (num < -1 || num > countStagiaire)
+                SqlDataReader reader = command.ExecuteReader();
+                if (!reader.HasRows)
                 {
-                    afficherMessageErreur("Le numero de stagiaire est introuvable !");
+                    afficherMessageErreur("Le stagiaire est intriouvable !");
+                    reader.Close();
+                    return;
                 }
+                reader.Close();
 
-                command.CommandText = string.Format("UPDATE Stagiaire SET tel = '{0}' WHERE num = {1}", telephone, num);
+                command.CommandText = string.Format("UPDATE Stagiaires SET tel = '{0}' WHERE num = {1}", telephone, num);
                 if ( command.ExecuteNonQuery() > 0 )
                 {
                     actualiserListBoxStagiaires();
+                    textBoxNumModifier.Text = textBoxTelModifier.Text = "";
                     MessageBox.Show("Votre stagiaire est bien modifiee !", "Succes", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
@@ -174,7 +160,7 @@ namespace TP2_Exercice1
             try
             {
                 int num = int.Parse(numero);
-                SqlCommand command = new SqlCommand("SELECT COUNT(*) FROM Stagiaire", connection);
+                SqlCommand command = new SqlCommand("SELECT COUNT(*) FROM Stagiaires", connection);
                 int countStagiaire = (int)command.ExecuteScalar();
 
                 if ( countStagiaire == 0 ) 
@@ -182,7 +168,7 @@ namespace TP2_Exercice1
                     afficherMessageErreur("Aucun stagiaire enregistree !");
                     return;
                 }
-                command.CommandText = string.Format("SELECT * FROM Stagiaire WHERE num = {0}", num);
+                command.CommandText = string.Format("SELECT * FROM Stagiaires WHERE num = {0}", num);
                 SqlDataReader reader = command.ExecuteReader();
                 if ( !reader.HasRows )
                 {
@@ -192,13 +178,13 @@ namespace TP2_Exercice1
                 }
 
                 reader.Close();
-                command.CommandText = string.Format("DELETE Stagiaire WHERE num = {0}", num);
+                command.CommandText = string.Format("DELETE Stagiaires WHERE num = {0}", num);
                 if ( command.ExecuteNonQuery() > 0 )
                 {
+                    actualiserListBoxStagiaires();
                     MessageBox.Show("Votre stagiaire est bien supprimee !", "Succes", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     textBoxNumSup.Text = "";
                 }
-                actualiserListBoxStagiaires();
             }
             catch ( FormatException )
             {
